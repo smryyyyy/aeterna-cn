@@ -21,8 +21,26 @@ import (
 type AuthService struct{}
 
 type sessionClaims struct {
-	Exp int64 `json:"exp"`
-	Iat int64 `json:"iat"`
+	Exp  int64  `json:"exp"`
+	Iat  int64  `json:"iat"`
+	Hash string `json:"hash,omitempty"`
+}
+
+func (s AuthService) getActiveHashPrefix() string {
+	if env := os.Getenv("MASTER_PASSWORD"); env != "" {
+		if len(env) > 10 {
+			return env[:10]
+		}
+		return env
+	}
+	hash, err := s.GetMasterHash()
+	if err == nil {
+		if len(hash) > 10 {
+			return hash[:10]
+		}
+		return hash
+	}
+	return ""
 }
 
 func (s AuthService) IssueSessionToken() (string, time.Time, error) {
@@ -31,8 +49,9 @@ func (s AuthService) IssueSessionToken() (string, time.Time, error) {
 	exp := now.Add(ttl)
 
 	claims := sessionClaims{
-		Exp: exp.Unix(),
-		Iat: now.Unix(),
+		Exp:  exp.Unix(),
+		Iat:  now.Unix(),
+		Hash: s.getActiveHashPrefix(),
 	}
 	payload, err := json.Marshal(claims)
 	if err != nil {
@@ -64,6 +83,10 @@ func (s AuthService) VerifySessionToken(token string) error {
 
 	if claims.Exp == 0 || time.Now().UTC().After(time.Unix(claims.Exp, 0)) {
 		return NewAPIError(401, "unauthorized", "Session expired", nil)
+	}
+
+	if claims.Hash != "" && claims.Hash != s.getActiveHashPrefix() {
+		return NewAPIError(401, "unauthorized", "Session expired due to password change", nil)
 	}
 
 	return nil
