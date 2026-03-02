@@ -42,8 +42,13 @@ func GetMessage(c *fiber.Ctx) error {
 		return writeError(c, err)
 	}
 
+	content := ""
+	if string(msg.Status) == "triggered" {
+		content = msg.Content
+	}
+
 	return c.JSON(fiber.Map{
-		"content":    msg.Content,
+		"content":    content,
 		"status":     msg.Status,
 		"created_at": msg.CreatedAt,
 	})

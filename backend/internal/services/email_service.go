@@ -221,7 +221,9 @@ func (s EmailService) sendEmailSSL(settings models.Settings, addr, from, to stri
 	if err != nil {
 		return fmt.Errorf("SMTP client failed: %v", err)
 	}
-	defer client.Quit()
+	defer func() {
+		_ = client.Quit()
+	}()
 
 	if err = authWithFallback(client, settings.SMTPUser, settings.SMTPPass, settings.SMTPHost); err != nil {
 		return err
@@ -253,7 +255,9 @@ func (s EmailService) sendEmailSTARTTLS(settings models.Settings, addr, from, to
 	if err != nil {
 		return fmt.Errorf("dial failed: %v", err)
 	}
-	defer client.Quit()
+	defer func() {
+		_ = client.Quit()
+	}()
 
 	tlsConfig := &tls.Config{ServerName: settings.SMTPHost}
 	if ok, _ := client.Extension("STARTTLS"); ok {
