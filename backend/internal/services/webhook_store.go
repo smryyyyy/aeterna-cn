@@ -123,37 +123,55 @@ func validateWebhookURL(raw string) (string, error) {
 		return "", BadRequest("Invalid webhook URL", err)
 	}
 
-	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != "https" {
-		return "", BadRequest("Webhook URL must use https", nil)
-	}
-
-	if parsed.User != nil {
-		return "", BadRequest("Webhook URL must not include credentials", nil)
-	}
-
-	if parsed.Fragment != "" {
-		return "", BadRequest("Webhook URL must not include fragments", nil)
+	if err := validateWebhookURLFormat(parsed); err != nil {
+		return "", err
 	}
 
 	hostname := strings.ToLower(parsed.Hostname())
-	if hostname == "" {
-		return "", BadRequest("Invalid webhook URL host", nil)
-	}
-	if err := enforceWebhookAllowlist(hostname); err != nil {
+	if err := validateWebhookHostname(hostname); err != nil {
 		return "", err
-	}
-	if hostname == "localhost" || strings.HasSuffix(hostname, ".localhost") || strings.HasSuffix(hostname, ".local") {
-		return "", BadRequest("Webhook URL host is not allowed", nil)
-	}
-
-	if ip := net.ParseIP(hostname); ip != nil {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-			return "", BadRequest("Webhook URL host is not allowed", nil)
-		}
 	}
 
 	return parsed.String(), nil
+}
+
+func validateWebhookURLFormat(parsed *url.URL) error {
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "https" {
+		return BadRequest("Webhook URL must use https", nil)
+	}
+
+	if parsed.User != nil {
+		return BadRequest("Webhook URL must not include credentials", nil)
+	}
+
+	if parsed.Fragment != "" {
+		return BadRequest("Webhook URL must not include fragments", nil)
+	}
+
+	return nil
+}
+
+func validateWebhookHostname(hostname string) error {
+	if hostname == "" {
+		return BadRequest("Invalid webhook URL host", nil)
+	}
+	if err := enforceWebhookAllowlist(hostname); err != nil {
+		return err
+	}
+	if hostname == "localhost" || strings.HasSuffix(hostname, ".localhost") || strings.HasSuffix(hostname, ".local") {
+		return BadRequest("Webhook URL host is not allowed", nil)
+	}
+	return validateWebhookIP(hostname)
+}
+
+func validateWebhookIP(hostname string) error {
+	if ip := net.ParseIP(hostname); ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return BadRequest("Webhook URL host is not allowed", nil)
+		}
+	}
+	return nil
 }
 
 func enforceWebhookAllowlist(hostname string) error {
