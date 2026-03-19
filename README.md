@@ -15,7 +15,6 @@
 ## Table of Contents
 - [Key Features](#key-features)
 - [Screenshots](#screenshots)
-- [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
 - [Management](#management)
 - [Configuration](#configuration)
@@ -69,21 +68,6 @@ Aeterna holds these words. It watches. It waits. And when the time comes, it del
   </table>
 </p>
 
-## Tech Stack
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go">
-  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
-  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="Nginx">
-</p>
-
-- **Backend**: [Go](https://go.dev/) (Gin Gonic, GORM) - Built for speed and safety.
-- **Frontend**: [React](https://reactjs.org/) (Vite, TailwindCSS) - Modern and responsive UI.
-- **Database**: [SQLite](https://www.sqlite.org/) - Zero-config, reliable single-file storage.
-- **Security**: AES-256-GCM encryption & Let's Encrypt SSL.
-- **Deployment**: Docker Compose for easy scaling and portability.
 
 
 ## Quick Start
