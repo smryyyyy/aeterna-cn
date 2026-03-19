@@ -12,6 +12,19 @@
   <img src="https://img.shields.io/badge/License-GPL--3.0-blue?style=flat-square" alt="GPL-3.0 License">
 </p>
 
+## Table of Contents
+- [Key Features](#key-features)
+- [Screenshots](#screenshots)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Management](#management)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [License](#license)
+
+
 *"What words would you leave behind?"*
 
 ---
@@ -37,12 +50,41 @@ Aeterna holds these words. It watches. It waits. And when the time comes, it del
 <p align="center">
   <table>
     <tr>
-      <td align="center"><img src="assets/screenshots/dashboard.png" alt="Dashboard" width="280"><br><sub><b>Dashboard</b></sub></td>
-      <td align="center"><img src="assets/screenshots/creatingswitch.png" alt="Creating a Switch" width="280"><br><sub><b>Creating a Switch</b></sub></td>
-      <td align="center"><img src="assets/screenshots/settings.png" alt="Settings" width="280"><br><sub><b>Settings</b></sub></td>
+      <td align="center" style="padding: 12px;">
+        <a href="assets/screenshots/dashboard.png" target="_blank">
+          <img src="assets/screenshots/dashboard.png" alt="Dashboard" width="280">
+        </a><br><sub><b>Dashboard</b></sub>
+      </td>
+      <td align="center" style="padding: 12px;">
+        <a href="assets/screenshots/creatingswitch.png" target="_blank">
+          <img src="assets/screenshots/creatingswitch.png" alt="Creating a Switch" width="280">
+        </a><br><sub><b>Creating a Switch</b></sub>
+      </td>
+      <td align="center" style="padding: 12px;">
+        <a href="assets/screenshots/settings.png" target="_blank">
+          <img src="assets/screenshots/settings.png" alt="Settings" width="280">
+        </a><br><sub><b>Settings</b></sub>
+      </td>
     </tr>
   </table>
 </p>
+
+## Tech Stack
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="Nginx">
+</p>
+
+- **Backend**: [Go](https://go.dev/) (Gin Gonic, GORM) - Built for speed and safety.
+- **Frontend**: [React](https://reactjs.org/) (Vite, TailwindCSS) - Modern and responsive UI.
+- **Database**: [SQLite](https://www.sqlite.org/) - Zero-config, reliable single-file storage.
+- **Security**: AES-256-GCM encryption & Let's Encrypt SSL.
+- **Deployment**: Docker Compose for easy scaling and portability.
+
 
 ## Quick Start
 
@@ -147,6 +189,23 @@ frontend/    React application
 ```
 
 Both components can run in Docker containers or natively. SQLite is used for storage (single file database). You can use **any reverse proxy** (proxy, caddy, apache) to serve them together and provide SSL.
+
+## Project Structure
+
+```bash
+.
+├── assets/             # Images and design assets
+├── backend/            # Go source code
+│   ├── cmd/            # Entry points (main.go)
+│   └── internal/       # Core business logic, handlers, and services
+├── frontend/           # React frontend source
+│   ├── src/            # Components, pages, and hooks
+│   └── public/         # Static assets for the web
+├── secrets/            # Encryption keys (ignored by git)
+├── docker-compose.*    # Deployment various configurations
+└── install.sh          # Automated installation script
+```
+
 
 ## License
 
