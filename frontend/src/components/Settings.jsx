@@ -110,8 +110,8 @@ export default function Settings() {
             if (data) {
                 setConfig(prev => ({ ...prev, ...data }));
             }
-        } catch (e) {
-            console.error('Failed to fetch config');
+        } catch (err) {
+            console.error('Failed to fetch config', err);
             setError('Failed to load settings');
         } finally {
             setConfigLoading(false);

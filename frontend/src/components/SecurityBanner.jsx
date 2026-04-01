@@ -1,17 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function SecurityBanner() {
-    const [isInsecure, setIsInsecure] = useState(false);
+    const [isInsecure] = useState(() => window.location.protocol !== 'https:');
     const [dismissed, setDismissed] = useState(() => {
         // Check localStorage for dismissed state
         return localStorage.getItem('security-banner-dismissed') === 'true';
     });
-
-    useEffect(() => {
-        // Check if connection is not secure (HTTP instead of HTTPS)
-        const isSecure = window.location.protocol === 'https:';
-        setIsInsecure(!isSecure);
-    }, []);
 
     const handleDismiss = () => {
         setDismissed(true);

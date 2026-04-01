@@ -2,23 +2,27 @@ import { useState } from 'react';
 import { LayoutDashboard, PlusCircle, LogOut, Settings, Menu, X } from 'lucide-react';
 import { Button } from "@/components/ui/button"
 
-export default function Header({ currentRoute, setRoute, onLogout }) {
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-    const NavButton = ({ route, icon: Icon, label }) => (
+function NavButton({ route, icon: Icon, label, currentRoute, onNavigate }) {
+    return (
         <Button
             variant="ghost"
             size="sm"
             className={`text-dark-400 hover:text-dark-100 hover:bg-dark-800 w-full md:w-auto justify-start md:justify-center ${currentRoute === route ? 'bg-dark-800 text-dark-100' : ''}`}
-            onClick={() => {
-                setRoute(route);
-                setMobileMenuOpen(false);
-            }}
+            onClick={() => onNavigate(route)}
         >
             <Icon className="w-4 h-4 mr-2" />
             {label}
         </Button>
     );
+}
+
+export default function Header({ currentRoute, setRoute, onLogout }) {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const handleNavigate = (route) => {
+        setRoute(route);
+        setMobileMenuOpen(false);
+    };
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-dark-700 bg-dark-950/95 backdrop-blur-sm">
@@ -37,9 +41,9 @@ export default function Header({ currentRoute, setRoute, onLogout }) {
 
                 {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-1">
-                    <NavButton route="home" icon={PlusCircle} label="Create" />
-                    <NavButton route="dashboard" icon={LayoutDashboard} label="Dashboard" />
-                    <NavButton route="settings" icon={Settings} label="Settings" />
+                    <NavButton route="home" icon={PlusCircle} label="Create" currentRoute={currentRoute} onNavigate={handleNavigate} />
+                    <NavButton route="dashboard" icon={LayoutDashboard} label="Dashboard" currentRoute={currentRoute} onNavigate={handleNavigate} />
+                    <NavButton route="settings" icon={Settings} label="Settings" currentRoute={currentRoute} onNavigate={handleNavigate} />
                     {onLogout && (
                         <>
                             <div className="w-px h-4 bg-dark-700 mx-2" />
@@ -70,9 +74,9 @@ export default function Header({ currentRoute, setRoute, onLogout }) {
             {mobileMenuOpen && (
                 <div className="md:hidden border-t border-dark-700 bg-dark-950/98 backdrop-blur-sm">
                     <nav className="container mx-auto px-4 py-3 flex flex-col gap-1">
-                        <NavButton route="home" icon={PlusCircle} label="Create" />
-                        <NavButton route="dashboard" icon={LayoutDashboard} label="Dashboard" />
-                        <NavButton route="settings" icon={Settings} label="Settings" />
+                        <NavButton route="home" icon={PlusCircle} label="Create" currentRoute={currentRoute} onNavigate={handleNavigate} />
+                        <NavButton route="dashboard" icon={LayoutDashboard} label="Dashboard" currentRoute={currentRoute} onNavigate={handleNavigate} />
+                        <NavButton route="settings" icon={Settings} label="Settings" currentRoute={currentRoute} onNavigate={handleNavigate} />
                         {onLogout && (
                             <>
                                 <div className="h-px bg-dark-700 my-2" />

@@ -10,7 +10,7 @@ const passwordRules = [
     { id: 'upper', label: 'One uppercase letter', test: (p) => /[A-Z]/.test(p) },
     { id: 'lower', label: 'One lowercase letter', test: (p) => /[a-z]/.test(p) },
     { id: 'number', label: 'One number', test: (p) => /[0-9]/.test(p) },
-    { id: 'special', label: 'One special character (!@#$%^&*)', test: (p) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(p) },
+    { id: 'special', label: 'One special character (!@#$%^&*)', test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
 ];
 
 export default function VaultLock({ onUnlock }) {

@@ -12,11 +12,6 @@ function App() {
   const [authorized, setAuthorized] = useState(false)
 
   useEffect(() => {
-    const path = window.location.pathname;
-    // No longer need to handle /view/ routes since we send content in email
-  }, []);
-
-  useEffect(() => {
     const checkSession = async () => {
       try {
         const data = await apiRequest('/auth/session');

@@ -42,7 +42,7 @@ const AlertDialogTrigger = ({ asChild, children }) => {
     return <button onClick={() => setOpen(true)}>{children}</button>
 }
 
-const AlertDialogContent = ({ children }) => {
+const AlertDialogContent = () => {
     return null
 }
 
