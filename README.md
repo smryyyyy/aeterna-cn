@@ -149,6 +149,16 @@ The `install.sh` script includes management commands:
 | `./install.sh --status` | Check service health and status |
 | `./install.sh --uninstall` | Remove containers and installation |
 
+## Configuration
+
+The installer guides you through basic configuration:
+- **Domain**: Your domain name (required for SSL)
+- **Encryption**: Automatically generates a unique AES-256 key
+
+**SMTP Settings** (required for sending emails) are configured post-installation through the application's **Settings** menu. This allows for live testing and easier management.
+
+
+
 ## Docker Images (GHCR)
 
 ```bash
@@ -162,14 +172,6 @@ docker pull ghcr.io/alpyxn/aeterna-frontend:main
 docker pull docker.io/alpyxn/aeterna-backend:main
 docker pull docker.io/alpyxn/aeterna-frontend:main
 ```
-
-## Configuration
-
-The installer guides you through basic configuration:
-- **Domain**: Your domain name (required for SSL)
-- **Encryption**: Automatically generates a unique AES-256 key
-
-**SMTP Settings** (required for sending emails) are configured post-installation through the application's **Settings** menu. This allows for live testing and easier management.
 
 ## Security
 
