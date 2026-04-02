@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Lock, Mail, Clock, Loader2, AlertCircle, CheckCircle, Send, Paperclip, X, Upload, Settings as SettingsIcon } from 'lucide-react';
+import { Lock, Mail, Clock, Loader2, AlertCircle, CheckCircle, Send, Paperclip, X, Upload, Settings as SettingsIcon, Plus } from 'lucide-react';
 import { Select } from "@/components/ui/select"
 import { apiRequest, uploadFile } from "@/lib/api"
 
@@ -12,6 +12,25 @@ const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.doc', '.docx', '.jpg', '.jpeg', '.
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_FILES = 5;
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25 MB
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function parseRecipientEmails(input) {
+    const parts = input
+        .split(/[\n,;]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+    const unique = [];
+    const seen = new Set();
+    for (const email of parts) {
+        const key = email.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(email);
+        }
+    }
+    return unique;
+}
 
 function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -34,7 +53,8 @@ function formatMinutes(minutes) {
 
 export default function CreateSwitch({ setRoute }) {
     const [message, setMessage] = useState('');
-    const [email, setEmail] = useState('');
+    const [recipientInput, setRecipientInput] = useState('');
+    const [recipientEmails, setRecipientEmails] = useState([]);
     const [duration, setDuration] = useState(1440);
     const [reminders, setReminders] = useState([720]); // default to 12 hours before trigger
     const [loading, setLoading] = useState(false);
@@ -162,19 +182,101 @@ export default function CreateSwitch({ setRoute }) {
         setDragOver(false);
     };
 
+    const addRecipientsFromText = (text) => {
+        const parsed = parseRecipientEmails(text);
+        if (parsed.length === 0) return { added: 0, invalid: null };
+
+        let invalid = null;
+        let added = 0;
+
+        setRecipientEmails((prev) => {
+            const seen = new Set(prev.map((email) => email.toLowerCase()));
+            const next = [...prev];
+
+            for (const email of parsed) {
+                if (!EMAIL_REGEX.test(email)) {
+                    if (!invalid) invalid = email;
+                    continue;
+                }
+                const key = email.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    next.push(email);
+                    added += 1;
+                }
+            }
+
+            return next;
+        });
+
+        return { added, invalid };
+    };
+
+    const handleAddRecipients = () => {
+        const { invalid } = addRecipientsFromText(recipientInput);
+        if (invalid) {
+            setError(`Invalid email address: ${invalid}`);
+        } else if (error) {
+            setError(null);
+        }
+        setRecipientInput('');
+        if (success) setSuccess(false);
+    };
+
+    const removeRecipient = (emailToRemove) => {
+        setRecipientEmails((prev) => prev.filter((email) => email !== emailToRemove));
+    };
+
+    const handleRecipientKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === 'Tab') {
+            e.preventDefault();
+            if (recipientInput.trim()) {
+                handleAddRecipients();
+            }
+        }
+    };
+
+    const handleRecipientPaste = (e) => {
+        const pasted = e.clipboardData.getData('text');
+        if (/[\n,;]/.test(pasted)) {
+            e.preventDefault();
+            const { invalid } = addRecipientsFromText(pasted);
+            if (invalid) {
+                setError(`Invalid email address: ${invalid}`);
+            } else if (error) {
+                setError(null);
+            }
+            if (success) setSuccess(false);
+        }
+    };
+
     const handleCreate = async () => {
+        const pendingRecipients = parseRecipientEmails(recipientInput);
+        const mergedRecipients = [...recipientEmails];
+        const seen = new Set(mergedRecipients.map((email) => email.toLowerCase()));
+
+        for (const email of pendingRecipients) {
+            if (!EMAIL_REGEX.test(email)) {
+                setError(`Invalid email address: ${email}`);
+                return;
+            }
+            const key = email.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                mergedRecipients.push(email);
+            }
+        }
+
         if (!message.trim()) {
             setError('Please enter a message');
             return;
         }
-        if (!email.trim()) {
-            setError('Please enter recipient email');
+        if (mergedRecipients.length === 0) {
+            setError('Please enter at least one recipient email');
             return;
         }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-            setError('Please enter a valid email address');
-            return;
-        }
+
+        setRecipientEmails(mergedRecipients);
 
         setLoading(true);
         setError(null);
@@ -187,7 +289,8 @@ export default function CreateSwitch({ setRoute }) {
                 method: 'POST',
                 body: JSON.stringify({
                     content: message,
-                    recipient_email: email,
+                    recipient_email: mergedRecipients[0],
+                    recipient_emails: mergedRecipients,
                     trigger_duration: duration,
                     reminders: reminders
                 })
@@ -210,7 +313,8 @@ export default function CreateSwitch({ setRoute }) {
                         setUploadProgress('');
                         setFiles([]);
                         setMessage('');
-                        setEmail('');
+                        setRecipientInput('');
+                        setRecipientEmails([]);
                         return;
                     }
                 }
@@ -218,7 +322,8 @@ export default function CreateSwitch({ setRoute }) {
 
             setSuccess(true);
             setMessage('');
-            setEmail('');
+            setRecipientInput('');
+            setRecipientEmails([]);
             setFiles([]);
             setUploadProgress('');
 
@@ -355,20 +460,57 @@ export default function CreateSwitch({ setRoute }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-xs font-medium text-dark-400 flex items-center gap-2">
-                                <Mail className="w-3 h-3" /> Recipient Email
+                                <Mail className="w-3 h-3" /> Recipient Emails
                             </label>
-                            <Input
-                                type="email"
-                                placeholder="recipient@email.com"
-                                value={email}
-                                onChange={(e) => {
-                                    setEmail(e.target.value);
-                                    if (error) setError(null);
-                                    if (success) setSuccess(false);
-                                }}
-                                className="bg-dark-950 border-dark-700 focus:border-teal-500 text-dark-100 placeholder:text-dark-500"
-                                aria-invalid={Boolean(error)}
-                            />
+                            <div className="space-y-2">
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="text"
+                                        placeholder="recipient@email.com"
+                                        value={recipientInput}
+                                        onChange={(e) => {
+                                            setRecipientInput(e.target.value);
+                                            if (error) setError(null);
+                                            if (success) setSuccess(false);
+                                        }}
+                                        onKeyDown={handleRecipientKeyDown}
+                                        onPaste={handleRecipientPaste}
+                                        className="bg-dark-950 border-dark-700 focus:border-teal-500 text-dark-100 placeholder:text-dark-500"
+                                        aria-invalid={Boolean(error)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleAddRecipients}
+                                        className="border-dark-700 bg-dark-900 hover:bg-dark-800 text-dark-200"
+                                        disabled={!recipientInput.trim()}
+                                    >
+                                        <Plus className="w-4 h-4 mr-1" /> Add
+                                    </Button>
+                                </div>
+
+                                {recipientEmails.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 bg-dark-900 border border-dark-700 rounded-lg p-2.5">
+                                        {recipientEmails.map((email) => (
+                                            <div key={email} className="flex items-center gap-1.5 bg-dark-800 text-dark-200 text-xs px-2 py-1 rounded max-w-full min-w-0">
+                                                <Mail className="w-3 h-3 text-teal-400 shrink-0" />
+                                                <span className="truncate max-w-[220px] sm:max-w-[300px]" title={email}>{email}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeRecipient(email)}
+                                                    className="text-dark-400 hover:text-red-400 shrink-0"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <p className="text-[10px] text-dark-600">
+                                    Press Enter, Tab, comma, or use + Add. You can also paste multiple emails.
+                                </p>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -475,7 +617,7 @@ export default function CreateSwitch({ setRoute }) {
                     <Button
                         className="w-full bg-teal-600 hover:bg-teal-500 text-white font-medium py-5"
                         onClick={handleCreate}
-                        disabled={loading || !message.trim() || !email.trim()}
+                        disabled={loading || !message.trim() || (recipientEmails.length === 0 && !recipientInput.trim())}
                     >
                         {loading ? (
                             <Loader2 className="w-4 h-4 animate-spin mr-2" />

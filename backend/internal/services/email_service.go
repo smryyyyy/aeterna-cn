@@ -33,7 +33,10 @@ func sanitizeEmailHeader(s string) string {
 }
 
 func (s EmailService) SendTriggeredMessage(settings models.Settings, msg models.Message, attachments []EmailAttachment) error {
-	to := msg.RecipientEmail
+	recipients := ParseRecipientEmails(msg.RecipientEmail)
+	if len(recipients) == 0 {
+		recipients = []string{msg.RecipientEmail}
+	}
 	subject := "A message for you"
 
 	content := msg.Content
@@ -55,13 +58,13 @@ func (s EmailService) SendTriggeredMessage(settings models.Settings, msg models.
 Sent by Aeterna`, content)
 
 	if len(attachments) > 0 {
-		return s.SendWithAttachments(settings, to, subject, body, attachments)
+		return s.SendWithAttachments(settings, recipients, subject, body, attachments)
 	}
-	return s.SendPlain(settings, to, subject, body)
+	return s.SendPlain(settings, recipients, subject, body)
 }
 
 // SendWithAttachments sends an email with file attachments using MIME multipart/mixed
-func (s EmailService) SendWithAttachments(settings models.Settings, to, subject, textBody string, attachments []EmailAttachment) error {
+func (s EmailService) SendWithAttachments(settings models.Settings, recipients []string, subject, textBody string, attachments []EmailAttachment) error {
 	from := settings.SMTPFrom
 	if from == "" {
 		from = settings.SMTPUser
@@ -74,7 +77,13 @@ func (s EmailService) SendWithAttachments(settings models.Settings, to, subject,
 	// Sanitize headers
 	from = sanitizeEmailHeader(from)
 	fromName = sanitizeEmailHeader(fromName)
-	to = sanitizeEmailHeader(to)
+	if len(recipients) == 0 {
+		return fmt.Errorf("at least one recipient is required")
+	}
+	sanitizedRecipients := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		sanitizedRecipients = append(sanitizedRecipients, sanitizeEmailHeader(recipient))
+	}
 	subject = sanitizeEmailHeader(subject)
 
 	boundary := "==AeternaBoundary=="
@@ -83,7 +92,7 @@ func (s EmailService) SendWithAttachments(settings models.Settings, to, subject,
 
 	// Main headers
 	buf.WriteString(fmt.Sprintf("From: %s <%s>\r\n", fromName, from))
-	buf.WriteString(fmt.Sprintf("To: %s\r\n", to))
+	buf.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(sanitizedRecipients, ", ")))
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	buf.WriteString("MIME-Version: 1.0\r\n")
 	buf.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=\"%s\"\r\n", boundary))
@@ -128,16 +137,16 @@ func (s EmailService) SendWithAttachments(settings models.Settings, to, subject,
 
 	if settings.SMTPPort == "465" {
 		return s.sendWithRetry(func() error {
-			return s.sendEmailSSL(settings, addr, from, to, message)
+			return s.sendEmailSSL(settings, addr, from, sanitizedRecipients, message)
 		})
 	}
 	return s.sendWithRetry(func() error {
-		return s.sendEmailSTARTTLS(settings, addr, from, to, message)
+		return s.sendEmailSTARTTLS(settings, addr, from, sanitizedRecipients, message)
 	})
 }
 
 // SendPlain sends a plain text email
-func (s EmailService) SendPlain(settings models.Settings, to, subject, body string) error {
+func (s EmailService) SendPlain(settings models.Settings, recipients []string, subject, body string) error {
 	from := settings.SMTPFrom
 	if from == "" {
 		from = settings.SMTPUser
@@ -150,11 +159,17 @@ func (s EmailService) SendPlain(settings models.Settings, to, subject, body stri
 	// Sanitize headers to prevent header injection
 	from = sanitizeEmailHeader(from)
 	fromName = sanitizeEmailHeader(fromName)
-	to = sanitizeEmailHeader(to)
+	if len(recipients) == 0 {
+		return fmt.Errorf("at least one recipient is required")
+	}
+	sanitizedRecipients := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		sanitizedRecipients = append(sanitizedRecipients, sanitizeEmailHeader(recipient))
+	}
 	subject = sanitizeEmailHeader(subject)
 
 	headers := fmt.Sprintf("From: %s <%s>\r\n", fromName, from)
-	headers += fmt.Sprintf("To: %s\r\n", to)
+	headers += fmt.Sprintf("To: %s\r\n", strings.Join(sanitizedRecipients, ", "))
 	headers += fmt.Sprintf("Subject: %s\r\n", subject)
 	headers += "MIME-Version: 1.0\r\n"
 	headers += "Content-Type: text/plain; charset=UTF-8\r\n"
@@ -165,11 +180,11 @@ func (s EmailService) SendPlain(settings models.Settings, to, subject, body stri
 
 	if settings.SMTPPort == "465" {
 		return s.sendWithRetry(func() error {
-			return s.sendEmailSSL(settings, addr, from, to, message)
+			return s.sendEmailSSL(settings, addr, from, sanitizedRecipients, message)
 		})
 	}
 	return s.sendWithRetry(func() error {
-		return s.sendEmailSTARTTLS(settings, addr, from, to, message)
+		return s.sendEmailSTARTTLS(settings, addr, from, sanitizedRecipients, message)
 	})
 }
 
@@ -208,7 +223,7 @@ func authWithFallback(client *smtp.Client, username, password, host string) erro
 	return nil
 }
 
-func (s EmailService) sendEmailSSL(settings models.Settings, addr, from, to string, message []byte) error {
+func (s EmailService) sendEmailSSL(settings models.Settings, addr, from string, recipients []string, message []byte) error {
 	tlsConfig := &tls.Config{ServerName: settings.SMTPHost}
 
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
@@ -233,8 +248,10 @@ func (s EmailService) sendEmailSSL(settings models.Settings, addr, from, to stri
 		return fmt.Errorf("MAIL FROM failed: %v", err)
 	}
 
-	if err = client.Rcpt(to); err != nil {
-		return fmt.Errorf("RCPT TO failed: %v", err)
+	for _, recipient := range recipients {
+		if err = client.Rcpt(recipient); err != nil {
+			return fmt.Errorf("RCPT TO failed for %s: %v", recipient, err)
+		}
 	}
 
 	w, err := client.Data()
@@ -250,7 +267,7 @@ func (s EmailService) sendEmailSSL(settings models.Settings, addr, from, to stri
 	return w.Close()
 }
 
-func (s EmailService) sendEmailSTARTTLS(settings models.Settings, addr, from, to string, message []byte) error {
+func (s EmailService) sendEmailSTARTTLS(settings models.Settings, addr, from string, recipients []string, message []byte) error {
 	client, err := smtp.Dial(addr)
 	if err != nil {
 		return fmt.Errorf("dial failed: %v", err)
@@ -276,8 +293,10 @@ func (s EmailService) sendEmailSTARTTLS(settings models.Settings, addr, from, to
 		return fmt.Errorf("MAIL FROM failed: %v", err)
 	}
 
-	if err = client.Rcpt(to); err != nil {
-		return fmt.Errorf("RCPT TO failed: %v", err)
+	for _, recipient := range recipients {
+		if err = client.Rcpt(recipient); err != nil {
+			return fmt.Errorf("RCPT TO failed for %s: %v", recipient, err)
+		}
 	}
 
 	w, err := client.Data()
@@ -291,6 +310,39 @@ func (s EmailService) sendEmailSTARTTLS(settings models.Settings, addr, from, to
 	}
 
 	return w.Close()
+}
+
+// ParseRecipientEmails supports comma or newline separated emails saved in recipient_email.
+func ParseRecipientEmails(value string) []string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ';' || r == '\n'
+	})
+	if len(parts) == 0 {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return nil
+		}
+		return []string{trimmed}
+	}
+
+	seen := make(map[string]struct{}, len(parts))
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		email := strings.TrimSpace(part)
+		if email == "" {
+			continue
+		}
+		key := strings.ToLower(email)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, email)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 // emailLoginAuth implements LOGIN authentication mechanism

@@ -19,6 +19,7 @@ type triggerPayload struct {
 	Event           string    `json:"event"`
 	MessageID       string    `json:"message_id"`
 	RecipientEmail  string    `json:"recipient_email"`
+	RecipientEmails []string  `json:"recipient_emails"`
 	Content         string    `json:"content"`
 	TriggerDuration int       `json:"trigger_duration"`
 	LastSeen        time.Time `json:"last_seen"`
@@ -44,6 +45,7 @@ func (s WebhookService) SendTriggerWebhooks(webhooks []models.Webhook, msg model
 		Event:           "switch.triggered",
 		MessageID:       msg.ID,
 		RecipientEmail:  msg.RecipientEmail,
+		RecipientEmails: ParseRecipientEmails(msg.RecipientEmail),
 		Content:         content,
 		TriggerDuration: msg.TriggerDuration,
 		LastSeen:        msg.LastSeen,

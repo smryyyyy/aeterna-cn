@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/alpyxn/aeterna/backend/internal/database"
@@ -95,9 +96,9 @@ To confirm you are available, click the link below:
 %s
 
 ---
-Sent by Aeterna`, remainingStr, msg.RecipientEmail, quickLink)
+Sent by Aeterna`, remainingStr, formatRecipients(msg.RecipientEmail), quickLink)
 
-	err := emailService.SendPlain(settings, settings.OwnerEmail, subject, body)
+	err := emailService.SendPlain(settings, []string{settings.OwnerEmail}, subject, body)
 	if err != nil {
 		slog.Error("Failed to send reminder email", "error", err, "owner", settings.OwnerEmail)
 		return
@@ -127,7 +128,7 @@ func checkHeartbeats() {
 }
 
 func triggerSwitch(msg models.Message) {
-	slog.Warn("Switch triggered", "recipient", msg.RecipientEmail, "id", msg.ID)
+	slog.Warn("Switch triggered", "recipient", formatRecipients(msg.RecipientEmail), "id", msg.ID)
 
 	// Load file attachments
 	var emailAttachments []services.EmailAttachment
@@ -157,23 +158,23 @@ func triggerSwitch(msg models.Message) {
 		// Send real email with content and attachments
 		err := emailService.SendTriggeredMessage(settings, msg, emailAttachments)
 		if err != nil {
-			slog.Error("Failed to send email", "error", err, "recipient", msg.RecipientEmail)
+			slog.Error("Failed to send email", "error", err, "recipient", formatRecipients(msg.RecipientEmail))
 		} else {
-			slog.Info("Email sent successfully", "recipient", msg.RecipientEmail, "attachments", len(emailAttachments))
+			slog.Info("Email sent successfully", "recipient", formatRecipients(msg.RecipientEmail), "attachments", len(emailAttachments))
 		}
 	} else {
-		slog.Info("Mock email", "recipient", msg.RecipientEmail, "content", msg.Content, "attachments", len(emailAttachments))
+		slog.Info("Mock email", "recipient", formatRecipients(msg.RecipientEmail), "content", msg.Content, "attachments", len(emailAttachments))
 	}
 
 	webhooks, err := webhookStore.ListEnabled()
 	if err != nil {
 		slog.Error("Failed to load webhooks", "error", err)
 	} else if len(webhooks) > 0 {
-		slog.Info("Webhook delivery attempt", "count", len(webhooks), "recipient", msg.RecipientEmail)
+		slog.Info("Webhook delivery attempt", "count", len(webhooks), "recipient", formatRecipients(msg.RecipientEmail))
 		if err := webhookService.SendTriggerWebhooks(webhooks, msg); err != nil {
-			slog.Error("Failed to deliver webhook", "error", err, "recipient", msg.RecipientEmail)
+			slog.Error("Failed to deliver webhook", "error", err, "recipient", formatRecipients(msg.RecipientEmail))
 		} else {
-			slog.Info("Webhook delivered", "count", len(webhooks), "recipient", msg.RecipientEmail)
+			slog.Info("Webhook delivered", "count", len(webhooks), "recipient", formatRecipients(msg.RecipientEmail))
 		}
 	}
 
@@ -212,12 +213,20 @@ Recipient: %s%s
 
 ---
 
-Sent by Aeterna`, msg.RecipientEmail, webhookInfo)
+Sent by Aeterna`, formatRecipients(msg.RecipientEmail), webhookInfo)
 
-	err := emailService.SendPlain(settings, settings.OwnerEmail, subject, body)
+	err := emailService.SendPlain(settings, []string{settings.OwnerEmail}, subject, body)
 	if err != nil {
 		slog.Error("Failed to send owner notification", "error", err, "owner", settings.OwnerEmail)
 	} else {
-		slog.Info("Owner notified of delivery", "owner", settings.OwnerEmail, "recipient", msg.RecipientEmail)
+		slog.Info("Owner notified of delivery", "owner", settings.OwnerEmail, "recipient", formatRecipients(msg.RecipientEmail))
 	}
+}
+
+func formatRecipients(value string) string {
+	recipients := services.ParseRecipientEmails(value)
+	if len(recipients) == 0 {
+		return strings.TrimSpace(value)
+	}
+	return strings.Join(recipients, ", ")
 }

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/alpyxn/aeterna/backend/internal/services"
 	"github.com/gofiber/fiber/v2"
 )
@@ -8,6 +10,7 @@ import (
 type CreateMessageRequest struct {
 	Content         string `json:"content"`
 	RecipientEmail  string `json:"recipient_email"`
+	RecipientEmails []string `json:"recipient_emails"`
 	TriggerDuration int    `json:"trigger_duration"` // in minutes
 	Reminders       []int  `json:"reminders"`        // minutes before trigger
 }
@@ -24,7 +27,12 @@ func CreateMessage(c *fiber.Ctx) error {
 		return writeError(c, services.BadRequest("Invalid request body", err))
 	}
 
-	msg, err := messageService.Create(req.Content, req.RecipientEmail, req.TriggerDuration, req.Reminders)
+	recipients := normalizeRecipients(req.RecipientEmails)
+	if len(recipients) == 0 && strings.TrimSpace(req.RecipientEmail) != "" {
+		recipients = []string{strings.TrimSpace(req.RecipientEmail)}
+	}
+
+	msg, err := messageService.Create(req.Content, recipients, req.TriggerDuration, req.Reminders)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -33,6 +41,33 @@ func CreateMessage(c *fiber.Ctx) error {
 		"id":      msg.ID,
 		"message": "Dead man's switch activated!",
 	})
+}
+
+func normalizeRecipients(recipients []string) []string {
+	if len(recipients) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(recipients))
+	normalized := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		email := strings.TrimSpace(recipient)
+		if email == "" {
+			continue
+		}
+		key := strings.ToLower(email)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, email)
+	}
+
+	if len(normalized) == 0 {
+		return nil
+	}
+
+	return normalized
 }
 
 func GetMessage(c *fiber.Ctx) error {
@@ -86,6 +121,8 @@ func DeleteMessage(c *fiber.Ctx) error {
 
 type UpdateMessageRequest struct {
 	Content         string `json:"content"`
+	RecipientEmail  string `json:"recipient_email"`
+	RecipientEmails []string `json:"recipient_emails"`
 	TriggerDuration int    `json:"trigger_duration"`
 	Reminders       []int  `json:"reminders"`
 }
@@ -97,7 +134,12 @@ func UpdateMessage(c *fiber.Ctx) error {
 		return writeError(c, services.BadRequest("Invalid request body", err))
 	}
 
-	msg, err := messageService.Update(id, req.Content, req.TriggerDuration, req.Reminders)
+	recipients := normalizeRecipients(req.RecipientEmails)
+	if len(recipients) == 0 && strings.TrimSpace(req.RecipientEmail) != "" {
+		recipients = []string{strings.TrimSpace(req.RecipientEmail)}
+	}
+
+	msg, err := messageService.Update(id, req.Content, recipients, req.TriggerDuration, req.Reminders)
 	if err != nil {
 		return writeError(c, err)
 	}

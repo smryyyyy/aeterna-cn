@@ -15,6 +15,7 @@ const (
 	MaxContentLength     = 50000
 	MinContentLength     = 1
 	MaxEmailLength       = 254
+	MaxRecipientEmails   = 20
 	MaxFileSize          = 10 * 1024 * 1024 // 10 MB
 	MaxTotalAttachSize   = 25 * 1024 * 1024 // 25 MB
 	MaxAttachmentsPerMsg = 5
@@ -72,6 +73,16 @@ func (s ValidationService) ValidateEmail(email string) error {
 		}
 	}
 
+	return nil
+}
+
+func (s ValidationService) ValidateEmailListLength(count int) error {
+	if count < 1 {
+		return BadRequest("At least one recipient email is required", nil)
+	}
+	if count > MaxRecipientEmails {
+		return BadRequest("Too many recipient emails (max 20)", nil)
+	}
 	return nil
 }
 
