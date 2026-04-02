@@ -124,8 +124,4 @@ www.server.com {
 
 Caddy will automatically provision TLS certificates when DNS is correct.
 
-## Important Notes
 
-- `localhost` is local-only and is not your public server IP.
-- If users open `https://www.server.com`, `ALLOWED_ORIGINS` must include that exact origin.
-- If you expose a non-standard port publicly (for example `:5000`), include that port in `ALLOWED_ORIGINS` and `BASE_URL`.
