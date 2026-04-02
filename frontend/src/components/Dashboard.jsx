@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
-import { Mail, Clock, Loader2, Trash2, Heart, AlertCircle, RefreshCw, Inbox, Eye, Pencil, Paperclip, X, Upload } from 'lucide-react';
+import { Mail, Clock, Loader2, Trash2, Heart, AlertCircle, RefreshCw, Inbox, Eye, Pencil, Paperclip, X, Upload, Plus } from 'lucide-react';
 import { apiRequest, uploadFile, deleteAttachment, listAttachments } from "@/lib/api";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +14,31 @@ const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.doc', '.docx', '.jpg', '.jpeg', '.
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 5;
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024;
+const RECIPIENT_PREVIEW_LIMIT = 3;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function parseRecipientEmails(value) {
+    const parts = String(value || '')
+        .split(/[\n,;]+/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+    const seen = new Set();
+    const unique = [];
+    for (const email of parts) {
+        const key = email.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(email);
+        }
+    }
+    return unique;
+}
+
+function formatRecipientEmails(value) {
+    const recipients = parseRecipientEmails(value);
+    return recipients.join(', ');
+}
 
 function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -107,6 +133,8 @@ export default function Dashboard() {
     const [editDuration, setEditDuration] = useState(1440);
     const [editReminders, setEditReminders] = useState([]);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editRecipientInput, setEditRecipientInput] = useState('');
+    const [editRecipients, setEditRecipients] = useState([]);
     const [editAttachments, setEditAttachments] = useState([]);
     const [editNewFiles, setEditNewFiles] = useState([]);
     const [showEditAttachments, setShowEditAttachments] = useState(false);
@@ -169,6 +197,8 @@ export default function Dashboard() {
         setEditContent(message.content);
         setEditDuration(message.trigger_duration);
         setEditReminders(message.reminders ? message.reminders.map(r => r.minutes_before) : []);
+        setEditRecipients(parseRecipientEmails(message.recipient_email));
+        setEditRecipientInput('');
         setEditNewFiles([]);
         setEditDialogOpen(true);
         setShowEditAttachments(message.attachment_count > 0);
@@ -179,6 +209,54 @@ export default function Dashboard() {
         } catch {
             setEditAttachments([]);
         }
+    };
+
+    const addEditRecipientsFromText = (text) => {
+        const parsed = parseRecipientEmails(text);
+        if (parsed.length === 0) return { invalid: null };
+
+        let invalid = null;
+        setEditRecipients((prev) => {
+            const seen = new Set(prev.map((email) => email.toLowerCase()));
+            const next = [...prev];
+            for (const email of parsed) {
+                if (!EMAIL_REGEX.test(email)) {
+                    if (!invalid) invalid = email;
+                    continue;
+                }
+                const key = email.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    next.push(email);
+                }
+            }
+            return next;
+        });
+
+        return { invalid };
+    };
+
+    const handleAddEditRecipient = () => {
+        const { invalid } = addEditRecipientsFromText(editRecipientInput);
+        if (invalid) {
+            setError(`Invalid email address: ${invalid}`);
+        } else if (error) {
+            setError(null);
+        }
+        setEditRecipientInput('');
+    };
+
+    const handleEditRecipientKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === 'Tab') {
+            e.preventDefault();
+            if (editRecipientInput.trim()) {
+                handleAddEditRecipient();
+            }
+        }
+    };
+
+    const removeEditRecipient = (emailToRemove) => {
+        setEditRecipients((prev) => prev.filter((email) => email !== emailToRemove));
     };
 
     const handleDeleteAttachment = async (attachmentId) => {
@@ -233,12 +311,33 @@ export default function Dashboard() {
     const handleUpdate = async () => {
         if (!editingMessage) return;
 
+        const pendingRecipients = parseRecipientEmails(editRecipientInput);
+        const mergedRecipients = [...editRecipients];
+        const seen = new Set(mergedRecipients.map((email) => email.toLowerCase()));
+        for (const email of pendingRecipients) {
+            if (!EMAIL_REGEX.test(email)) {
+                setError(`Invalid email address: ${email}`);
+                return;
+            }
+            const key = email.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                mergedRecipients.push(email);
+            }
+        }
+        if (mergedRecipients.length === 0) {
+            setError('At least one recipient email is required');
+            return;
+        }
+
         setActionLoading(editingMessage.id);
         try {
             await apiRequest(`/messages/${editingMessage.id}`, {
                 method: 'PUT',
                 body: JSON.stringify({
                     content: editContent,
+                    recipient_email: mergedRecipients[0],
+                    recipient_emails: mergedRecipients,
                     trigger_duration: editDuration,
                     reminders: editReminders
                 })
@@ -252,6 +351,8 @@ export default function Dashboard() {
             setEditDialogOpen(false);
             setEditingMessage(null);
             setEditNewFiles([]);
+            setEditRecipientInput('');
+            setEditRecipients([]);
             await fetchMessages();
         } catch (e) {
             setError(e.message);
@@ -352,6 +453,14 @@ export default function Dashboard() {
                     {messages.map(message => {
                         const timeInfo = formatTimeRemaining(message);
                         const isTriggered = message.status === 'triggered';
+                        const recipients = parseRecipientEmails(message.recipient_email);
+                        const previewRecipients = recipients.slice(0, RECIPIENT_PREVIEW_LIMIT);
+                        const hasMoreRecipients = recipients.length > RECIPIENT_PREVIEW_LIMIT;
+                        const recipientSummaryLabel = recipients.length === 0
+                            ? 'No recipients'
+                            : recipients.length === 1
+                                ? '1 recipient'
+                                : `${recipients.length} recipients`;
 
                         return (
                             <Card key={message.id} className={`glowing-card ${isTriggered ? 'border-red-500/30' : ''}`}>
@@ -360,8 +469,44 @@ export default function Dashboard() {
                                         <div className="flex-1 space-y-1">
                                             <div className="flex items-center gap-2">
                                                 <Mail className="w-4 h-4 text-teal-400" />
-                                                <CardTitle className="text-sm font-medium truncate">{message.recipient_email}</CardTitle>
+                                                <CardTitle className="text-sm font-medium truncate">{recipientSummaryLabel}</CardTitle>
                                             </div>
+
+                                            {previewRecipients.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5 pl-6 pr-1 pt-0.5">
+                                                    {previewRecipients.map((email) => (
+                                                        <span key={`${message.id}-${email}`} className="max-w-[180px] truncate text-[10px] px-2 py-0.5 rounded-full bg-dark-800 text-dark-300 border border-dark-700" title={email}>
+                                                            {email}
+                                                        </span>
+                                                    ))}
+
+                                                    {hasMoreRecipients && (
+                                                        <Dialog>
+                                                            <DialogTrigger asChild>
+                                                                <button className="text-[10px] px-2 py-0.5 rounded-full border border-teal-500/30 text-teal-400 hover:bg-teal-500/10">
+                                                                    +{recipients.length - RECIPIENT_PREVIEW_LIMIT} more
+                                                                </button>
+                                                            </DialogTrigger>
+                                                            <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+                                                                <DialogHeader>
+                                                                    <DialogTitle>All Recipients</DialogTitle>
+                                                                    <DialogDescription>
+                                                                        This switch has {recipients.length} recipients.
+                                                                    </DialogDescription>
+                                                                </DialogHeader>
+                                                                <div className="mt-2 space-y-1.5">
+                                                                    {recipients.map((email, idx) => (
+                                                                        <div key={`${message.id}-all-${email}`} className="text-sm text-dark-200 bg-dark-950 border border-dark-800 rounded px-2.5 py-1.5">
+                                                                            {idx + 1}. {email}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </DialogContent>
+                                                        </Dialog>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <CardDescription className="text-xs text-dark-500">
                                                 Created {new Date(message.created_at).toLocaleDateString()}
                                             </CardDescription>
@@ -403,7 +548,7 @@ export default function Dashboard() {
                                                         <DialogHeader>
                                                             <DialogTitle>Message Content</DialogTitle>
                                                             <DialogDescription>
-                                                                Recipient: {message.recipient_email}
+                                                                Recipients: {formatRecipientEmails(message.recipient_email)}
                                                             </DialogDescription>
                                                         </DialogHeader>
                                                         <div className="mt-4 bg-dark-950 p-4 rounded-lg border border-dark-800 max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm text-dark-200">
@@ -493,10 +638,58 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Edit Switch</DialogTitle>
                         <DialogDescription className="text-dark-400">
-                            {editingMessage?.recipient_email}
+                            {formatRecipientEmails(editingMessage?.recipient_email)}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-dark-400 flex items-center gap-2">
+                                <Mail className="w-3 h-3" /> Recipient Emails
+                            </label>
+                            <div className="flex gap-2">
+                                <Input
+                                    type="text"
+                                    placeholder="recipient@email.com"
+                                    value={editRecipientInput}
+                                    onChange={(e) => {
+                                        setEditRecipientInput(e.target.value);
+                                        if (error) setError(null);
+                                    }}
+                                    onKeyDown={handleEditRecipientKeyDown}
+                                    className="bg-dark-950 border-dark-700 focus:border-teal-500 text-dark-100 placeholder:text-dark-500"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-dark-700 bg-dark-900 hover:bg-dark-800 text-dark-200"
+                                    onClick={handleAddEditRecipient}
+                                    disabled={!editRecipientInput.trim()}
+                                >
+                                    <Plus className="w-4 h-4 mr-1" /> Add
+                                </Button>
+                            </div>
+
+                            {editRecipients.length > 0 && (
+                                <div className="flex flex-wrap gap-2 bg-dark-900 border border-dark-700 rounded-lg p-2.5">
+                                    {editRecipients.map((email) => (
+                                        <div key={`edit-${email}`} className="flex items-center gap-1.5 bg-dark-800 text-dark-200 text-xs px-2 py-1 rounded max-w-full min-w-0">
+                                            <Mail className="w-3 h-3 text-teal-400 shrink-0" />
+                                            <span className="truncate max-w-[220px] sm:max-w-[300px]" title={email}>{email}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeEditRecipient(email)}
+                                                className="text-dark-400 hover:text-red-400 shrink-0"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <p className="text-[10px] text-dark-500">Press Enter, comma, semicolon, or use Add button.</p>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-xs font-medium text-dark-400">Message Content</label>
                             <Textarea
@@ -688,7 +881,7 @@ export default function Dashboard() {
                         </Button>
                         <Button
                             onClick={handleUpdate}
-                            disabled={actionLoading || !editContent.trim()}
+                            disabled={actionLoading || !editContent.trim() || (editRecipients.length === 0 && !editRecipientInput.trim())}
                             className="bg-teal-600 hover:bg-teal-500 text-white"
                         >
                             {actionLoading ? (
