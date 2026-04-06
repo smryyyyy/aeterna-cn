@@ -22,6 +22,8 @@
 - [Security](#security)
 - [Architecture](#architecture)
 - [Project Structure](#project-structure)
+- [Disclaimer](#disclaimer)
+- [Support](#support)
 - [License](#license)
 
 
@@ -291,6 +293,24 @@ Both components can run in Docker containers or natively. SQLite is used for sto
 ├── docker-compose.*    # Deployment various configurations
 └── install.sh          # Automated installation script
 ```
+
+
+## Disclaimer
+
+Aeterna deals with sensitive data and high-stakes outcomes (automated delivery if you stop checking in). **Read the full [disclaimer](disclaimer.md)** for limitations of liability, your responsibilities for deployment and compliance, and what the software does not guarantee.
+
+## Support
+
+💖 Support the Project
+
+If you find this project useful, consider supporting its development. Every contribution is greatly appreciated!
+
+| Asset | Network | Address |
+| --- | --- | --- |
+| **Bitcoin (BTC)** | Bitcoin | `bc1qtusxvc2agmvz88f5h7avznvrqmgl50tewj7h3u` |
+| **Solana (SOL)** | Solana | `7bJdCSZN8FUDXXUWDWkxjtS5oM6DGah8PQsXv1XomgWf` |
+| **USDT** | ERC-20 / BEP-20 | `0x5102Ca44De2dF3c1f6711a70076EAa3e5f0fD1c8` |
+| **Monero (XMR)** | Monero | `87U6EcarbbWUkVh15DeGSjEVkrhprbGR9ieAzHpYDivVi2WJK64sUWDDSpdqH5UFdDcpKgkXShTvVAFAbPJ4f7YYFvgaAku` |
 
 
 ## License
