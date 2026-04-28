@@ -1,5 +1,5 @@
 # Aeterna
-
+English丨[中文](README-cn.md)
 <p align="center">
   <img src="assets/hero.png" alt="Aeterna Logo" width="600">
 </p>
